@@ -23,6 +23,7 @@ class SceneNode : public LinkedList{
 public:
     glm::mat4 mModelMatrix;
 	glm::mat4 mScaleMatrix;
+	glm::vec2 mUV;
     Geometry * mGeometry;
     Material * mMaterial;
     void Update(float delta);

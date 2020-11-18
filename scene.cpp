@@ -91,7 +91,7 @@ void InitDrawCommand() {
 			node->mGeometry = model_cube;
 			node->mMaterial = m_cube;
 			node->mScaleMatrix = scale;
-			InitTorus(node, u, v, 0.0f);
+			node->mUV = glm::vec2(u,v);
 			AddSceneNodeToRoot1(node);
 		}
 	}
@@ -110,15 +110,44 @@ void SetViewPortSize(float width, float height) {
 }
 void Draw() {
 	float frameTime = GetFrameTime();
+	static float timeSinceStart = 0.0f;
+	static float animationTime = 0.0f;
+	static int current_geometry = 0;
 	OGL_CALL(glClearColor(0.1f, 0.4f, 0.6f, 1.0f));
 	OGL_CALL(glViewport(0, 0, sCanvasWidth, sCanvasHeight));
 	OGL_CALL(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
 	if (sRootNode1!=nullptr){
 		SceneNode*node = sRootNode1;
 		while (node != nullptr) {
+			switch (current_geometry)
+			{
+			case 0:
+				InitWave(node, node->mUV.x, node->mUV.y, timeSinceStart);
+				break;
+			case 1:
+				InitMultiWave(node, node->mUV.x, node->mUV.y, timeSinceStart);
+				break;
+			case 2:
+				InitRipple(node, node->mUV.x, node->mUV.y, timeSinceStart);
+				break;
+			case 3:
+				InitSphere(node, node->mUV.x, node->mUV.y, timeSinceStart);
+				break;
+			case 4:
+				InitTorus(node, node->mUV.x, node->mUV.y, timeSinceStart);
+				break;
+			default:
+				break;
+			}
 			node->Render(&sMainCamera);
 			node = node->Next<SceneNode>();
 		}
+	}
+	animationTime += frameTime;
+	timeSinceStart += frameTime;
+	if (animationTime>1.0f){
+		animationTime -= 1.0f;
+		current_geometry = (current_geometry + 1) % 5;
 	}
 }
 void OnKeyDown(int key) {
