@@ -52,35 +52,35 @@ void InitShaders() {
 void InitMaterials() {
 	m_cube = new Material(s_cube);
 }
-void InitWave(SceneNode*node, float u, float v, float t) {
-	node->mModelMatrix = glm::translate(u, sinf(PI * (u + v + t)), v)*node->mScaleMatrix;
+glm::vec3 InitWave(float u, float v, float t) {
+	return glm::vec3(u, sinf(PI * (u + v + t)), v);
 }
-void InitMultiWave(SceneNode*node, float u, float v, float t) {
+glm::vec3 InitMultiWave(float u, float v, float t) {
 	float y = sinf(PI * (u + 0.5f * t));
 	y += 0.5f * sinf(2.0f * PI * (v + t));
 	y += sinf(PI * (u + v + 0.25f * t));
 	y *= 1.0f / 2.5f;
-	node->mModelMatrix = glm::translate(u, y, v)*node->mScaleMatrix;
+	return glm::vec3(u, y, v);
 }
-void InitRipple(SceneNode*node, float u, float v, float t) {
+glm::vec3 InitRipple(float u, float v, float t) {
 	float d = sqrtf(u * u + v * v);
 	float y = sinf(PI * (4.0f * d - t));
 	y /= 1.0f + 10.0f * d;
-	node->mModelMatrix = glm::translate(u, y, v)*node->mScaleMatrix;
+	return glm::vec3(u, y, v);
 }
-void InitSphere(SceneNode*node, float u, float v, float t) {
+glm::vec3 InitSphere(float u, float v, float t) {
 	float r = 0.9f + 0.1f * sinf(PI * (6.0f * u + 4.0f * v + t));
 	float s = r * cosf(0.5f * PI * v);
-	node->mModelMatrix = glm::translate(s * sinf(PI * u), r * sinf(PI * 0.5f * v), s * cosf(PI * u))*node->mScaleMatrix;
+	return glm::vec3(s * sinf(PI * u), r * sinf(PI * 0.5f * v), s * cosf(PI * u));
 }
-void InitTorus(SceneNode*node, float u, float v, float t) {
+glm::vec3 InitTorus(float u, float v, float t) {
 	float r1 = 0.7f + 0.1f * sinf(PI * (6.0f * u + 0.5f * t));
 	float r2 = 0.15f + 0.05f * sinf(PI * (8.0f * u + 4.0f * v + 2.0f * t));
 	float s = r1 + r2 * cosf(PI * v);
-	node->mModelMatrix = glm::translate(s * sinf(PI * u), r2 * sinf(PI * v), s * cosf(PI * u))*node->mScaleMatrix;
+	return glm::vec3(s * sinf(PI * u), r2 * sinf(PI * v), s * cosf(PI * u));
 }
 void InitDrawCommand() {
-	int size = 100;
+	int size = 40;
 	float step = 2.0f / float(size);
 	glm::mat4 scale = glm::scale(step, step, step);
 	for (int z = 0; z < size; ++z){
@@ -108,46 +108,49 @@ void SetViewPortSize(float width, float height) {
 	sMainCamera.mProjectionMatrix = glm::perspective(45.0f, width / height, 0.1f, 1000.0f);
 	sMainCamera.mViewMatrix = glm::lookAt(glm::vec3(0.0f, 2.0f, 3.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 }
+glm::vec3 GetPosition(int geometry_index, float u, float v, float t) {
+	switch (geometry_index){
+	case 0:
+		return InitWave(u,v , t);
+	case 1:
+		return InitMultiWave(u, v, t);
+	case 2:
+		return InitRipple(u, v, t);
+	case 3:
+		return InitSphere(u, v, t);
+	case 4:
+		return InitTorus(u, v, t);
+	}
+}
 void Draw() {
 	float frameTime = GetFrameTime();
 	static float timeSinceStart = 0.0f;
 	static float animationTime = 0.0f;
 	static int current_geometry = 0;
+	static int next_geometry = 0;
+	static float transition_time = 0.0f;
 	OGL_CALL(glClearColor(0.1f, 0.4f, 0.6f, 1.0f));
 	OGL_CALL(glViewport(0, 0, sCanvasWidth, sCanvasHeight));
 	OGL_CALL(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
-	if (sRootNode1!=nullptr){
+	if (sRootNode1 != nullptr) {
 		SceneNode*node = sRootNode1;
 		while (node != nullptr) {
-			switch (current_geometry)
-			{
-			case 0:
-				InitWave(node, node->mUV.x, node->mUV.y, timeSinceStart);
-				break;
-			case 1:
-				InitMultiWave(node, node->mUV.x, node->mUV.y, timeSinceStart);
-				break;
-			case 2:
-				InitRipple(node, node->mUV.x, node->mUV.y, timeSinceStart);
-				break;
-			case 3:
-				InitSphere(node, node->mUV.x, node->mUV.y, timeSinceStart);
-				break;
-			case 4:
-				InitTorus(node, node->mUV.x, node->mUV.y, timeSinceStart);
-				break;
-			default:
-				break;
-			}
+			glm::vec3 current_pos = GetPosition(current_geometry, node->mUV.x, node->mUV.y, timeSinceStart);
+			glm::vec3 next_pos = GetPosition(next_geometry, node->mUV.x, node->mUV.y, timeSinceStart);
+			glm::vec3 pos = glm::lerp(current_pos, next_pos, glm::clamp(transition_time/0.5f,0.0f,1.0f));
+			node->mModelMatrix = glm::translate(pos)*node->mScaleMatrix;
 			node->Render(&sMainCamera);
 			node = node->Next<SceneNode>();
 		}
 	}
 	animationTime += frameTime;
+	transition_time += frameTime;
 	timeSinceStart += frameTime;
-	if (animationTime>1.0f){
-		animationTime -= 1.0f;
+	if (animationTime>2.0f){
+		animationTime -= 2.0f;
 		current_geometry = (current_geometry + 1) % 5;
+		next_geometry = (current_geometry + 1) % 5;
+		transition_time = 0.0f;
 	}
 }
 void OnKeyDown(int key) {
